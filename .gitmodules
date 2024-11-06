@@ -1,0 +1,3 @@
+[submodule "EDM-FastMRI"]
+	path = EDM-FastMRI
+	url = https://github.com/asad-aali/EDM-FastMRI.git
