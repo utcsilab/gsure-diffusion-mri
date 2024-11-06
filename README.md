@@ -5,15 +5,7 @@ Source code for paper [Enhancing Deep Learning-Driven Multi-Coil MRI Reconstruct
 
 ![samples](assets/pipeline.png)
 
-Pipeline describing the techniques utilized for: 
-
-1. GSURE Denoising
-
-2. GSURE-EDM Training
-
-3. GSURE-DPS Inference
-
-4. GSURE-MoDL Training/Inference
+Pipeline describing the techniques utilized for: (i) GSURE Denoising, (ii) GSURE-DPS Training/Inference, and (iii) GSURE-MoDL Training/Inference
 
 # Instructions (Coming Soon)
 
