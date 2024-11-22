@@ -1,7 +1,7 @@
 # Enhancing Deep Learning-Driven Multi-Coil MRI Reconstruction via Self-Supervised Denoising
 by [Asad Aali](https://asadaali.com/) and [Jon Tamir](http://users.ece.utexas.edu/~jtamir/csilab.html), UT CSI Lab.
 
-Source code for paper [Enhancing Deep Learning-Driven Multi-Coil MRI Reconstruction via Self-Supervised Denoising]().
+Source code for paper [Enhancing Deep Learning-Driven Multi-Coil MRI Reconstruction via Self-Supervised Denoising](https://doi.org/10.48550/arXiv.2411.12919).
 
 ![samples](assets/pipeline.png)
 
