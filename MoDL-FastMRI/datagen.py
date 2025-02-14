@@ -21,11 +21,12 @@ class FastMRI(Dataset):
     def __init__(self, downsample, ksp_path, data_path, data_type):
         self.downsample = downsample
         self.ksp_dir = ksp_path
+        self._data = torch.load(data_path)
+        self.noise_var = self._data['noise_var_noisy']
+        self.images = self._data['x_est']
         
-        if data_type == 'noisy':
-            self.images = torch.load(data_path)['x_est']
-        elif data_type == 'denoised':
-            self.images = torch.load(data_path)['x_denoised']
+        for i in range(len(self.noise_var)):
+            self.noise_var[i] = self.noise_var[i] / 2
     
     def __len__(self):
         return len(self.images)
@@ -50,4 +51,5 @@ class FastMRI(Dataset):
                 'meas_ksp': meas_ksp[0],
                 'maps': maps[0],
                 'full_mask': mask[0],
+                'noise_var': self.noise_var[idx],
                 'gt_img': gt_img[0]}

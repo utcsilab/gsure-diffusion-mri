@@ -88,7 +88,7 @@ class MoDL(torch.nn.Module):
             return torch.cat(output_list, dim=0)
         return core_function
 
-    def forward(self, ksp, maps, mask, meta_unrolls=1):
+    def forward(self, ksp, maps, mask, method, adjoint=None, meta_unrolls=1):
         mask      = mask
         ksp       = ksp
         # Initializers
@@ -110,35 +110,33 @@ class MoDL(torch.nn.Module):
 
 
         # get initial image x = A^H(y)
-        est_img_kernel = adjoint_batch_op(ksp) #flipped order of was ksp[:,mask_idx]: same below
-        # print(est_img_kernel.shape)
-        # For each outer unroll
-        # print(est_img_kernel.shape)
+        if method == "modl":
+            est_img_kernel = adjoint_batch_op(ksp)
+        elif method == "ensure":
+            est_img_kernel = adjoint
+
         for meta_idx in range(meta_unrolls):
             # Convert to reals
             # est_img_kernel_prev = est_img_kernel.clone()
-            est_img_kernel = torch.view_as_real(est_img_kernel).float()# shape: [B,H,W,2]
-            # print(est_img_kernel.shape)
-            # Apply image denoising network in image space
-            # stack images to be 4 channel input
-            # print(meta_idx, '   ', est_img_kernel.shape)
-            # est_img_kernel = self.image_net(est_img_kernel.permute(0,-1,-3,-2)) + est_img_kernel.permute(0,-1,-3,-2) UNet
+            if method == "modl":
+                est_img_kernel = torch.view_as_real(est_img_kernel).float()# shape: [B,H,W,2]
+        
             est_img_kernel = self.image_net(est_img_kernel[None,...])[0] #NormUNet
-            # Convert to complex
-            # est_img_kernel = est_img_kernel.permute(0,-2,-1,1).contiguous() # shape: [B,H,W,4] UNet
+
             # # Convert to complex
-            est_img_kernel = torch.view_as_complex(est_img_kernel)
+            if method == "modl":
+                est_img_kernel = torch.view_as_complex(est_img_kernel)
 
-            rhs = adjoint_batch_op(ksp) + \
-                self.block2_l2lam[0] * est_img_kernel
+                rhs = adjoint_batch_op(ksp) + \
+                    self.block2_l2lam[0] * est_img_kernel
 
-            # Get unrolled CG op
-            cg_op = ZConjGrad(rhs, normal_batch_op,
-                             l2lam=self.block2_l2lam[0],
-                             max_iter=self.block2_max_iter,
-                             eps=self.cg_eps, verbose=self.verbose)
-            # Run CG
-            est_img_kernel = cg_op(est_img_kernel)
+                # Get unrolled CG op
+                cg_op = ZConjGrad(rhs, normal_batch_op,
+                                l2lam=self.block2_l2lam[0],
+                                max_iter=self.block2_max_iter,
+                                eps=self.cg_eps, verbose=self.verbose)
+                # Run CG
+                est_img_kernel = cg_op(est_img_kernel)
 
             # Log
             if self.logging:

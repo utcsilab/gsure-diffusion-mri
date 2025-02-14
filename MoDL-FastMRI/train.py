@@ -25,6 +25,7 @@ parser.add_argument('--root', type=str)
 parser.add_argument('--ksp_path', type=str)
 parser.add_argument('--data_path', type=str)
 parser.add_argument('--data_type', type=str, default='noisy') # ['noisy', 'denoised']
+parser.add_argument('--method', type=str, default='modl') # ['modl', 'ensure']
 
 args   = parser.parse_args()
 
@@ -74,7 +75,7 @@ train_dataset = FastMRI(downsample=args.data_R, ksp_path=args.ksp_path, data_pat
 train_loader  = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=1, drop_last=True, pin_memory=True)
 
 #create results folder
-results_dir = args.root + "/models/" + args.anatomy + "/" + args.data_type + args.snr + "/R=" + str(args.data_R)
+results_dir = args.root + "/models_" + args.method + "/" + args.anatomy + "/" + args.data_type + args.snr + "/R=" + str(args.data_R)
 if not os.path.isdir(results_dir):
     os.makedirs(results_dir)
 
@@ -90,9 +91,25 @@ for epoch_idx in range(args.epochs):
             except:
                 pass
 
-        # for first loss term
-        x_train = model(ksp=sample['meas_ksp'], maps=sample['maps'], mask=sample['full_mask'][0], meta_unrolls=6)
-        full_loss = nrmse(abs(sample['gt_img']), abs(x_train))
+        if args.method == "modl":
+            x_train = model(ksp=sample['meas_ksp'], maps=sample['maps'], mask=sample['full_mask'][0], method=args.method, meta_unrolls=6)
+            full_loss = nrmse(abs(sample['gt_img']), abs(x_train))
+        
+        elif args.method == "ensure":
+            v = torch.view_as_real(sample["adj_img"][0]).float()
+            v.requires_grad_(True)
+
+            x_train = model(ksp=sample['meas_ksp'], maps=sample['maps'], mask=sample['full_mask'][0], method=args.method, adjoint=v)
+            data_loss = nrmse(abs(sample['gt_img']), abs(torch.view_as_complex(x_train)))
+            random_dir = torch.sign(torch.randn_like(v))
+
+            with torch.enable_grad():
+                fn_eps = torch.sum(x_train * random_dir)
+                grad_fn_eps = torch.autograd.grad(fn_eps, v, create_graph=True)[0]
+            
+            v.requires_grad_(False)
+            div_loss = torch.mean(grad_fn_eps * random_dir)
+            full_loss = data_loss + 2 * (sample["noise_var"] * div_loss)
 
         # Backprop
         optimizer.zero_grad()
