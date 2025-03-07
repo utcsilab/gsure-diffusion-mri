@@ -100,7 +100,7 @@ for epoch_idx in range(args.epochs):
             v.requires_grad_(True)
 
             x_train = model(ksp=sample['meas_ksp'], maps=sample['maps'], mask=sample['full_mask'][0], method=args.method, adjoint=v)
-            data_loss = nrmse(abs(sample['gt_img']), abs(torch.view_as_complex(x_train)))
+            data_loss = nrmse(torch.view_as_real(sample["gt_img"][0]).float(), x_train)
             random_dir = torch.sign(torch.randn_like(v))
 
             with torch.enable_grad():
