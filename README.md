@@ -1,7 +1,7 @@
-# Robust multi-coil MRI reconstruction via self-supervised denoising
+## Robust multi-coil MRI reconstruction via self-supervised denoising | MRM 2025
 by [Asad Aali](https://asadaali.com/) and [Jon Tamir](http://users.ece.utexas.edu/~jtamir/csilab.html), UT CSI Lab.
 
-Source code for paper [Robust multi-coil MRI reconstruction via self-supervised denoising](https://doi.org/10.48550/arXiv.2411.12919).
+Source code for paper [Robust multi-coil MRI reconstruction via self-supervised denoising](https://arxiv.org/pdf/2411.12919).
 
 ![samples](assets/pipeline.png)
 
