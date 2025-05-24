@@ -7,8 +7,6 @@ Source code for paper [Robust multi-coil MRI reconstruction via self-supervised 
 
 Pipeline describing the techniques utilized for: (i) GSURE Denoising, (ii) GSURE-DPS Training/Inference, and (iii) GSURE-MoDL Training/Inference.
 
-# Instructions (Coming Soon)
-
 # References
 
 ```bib
