@@ -1,11 +1,10 @@
 # Robust MRI reconstruction via self-supervised denoising | MRM 2025
-by [Asad Aali](https://asadaali.com/) and [Jon Tamir](http://users.ece.utexas.edu/~jtamir/csilab.html), UT CSI Lab.
 
-This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** with specialized components for MRI reconstruction tasks. The implementation includes GSURE preconditioning for denoising applications.
+This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** and **Model Based Deep Learning (MoDL)** with specialized components for MRI reconstruction tasks.
 
 ![samples](assets/pipeline.png)
 
-Figure | Pipeline describing the techniques utilized for: (i) GSURE Denoising, (ii) GSURE-DPS Training/Inference, and (iii) GSURE-MoDL Training/Inference
+Figure | Pipeline describing: (i) GSURE Denoising, (ii) GSURE-DPS, and (iii) GSURE-MoDL.
 
 ## Table of Contents
 
@@ -13,26 +12,27 @@ Figure | Pipeline describing the techniques utilized for: (i) GSURE Denoising, (
 - [Installation](#installation)
 - [Training](#training)
 - [Prior Sampling](#prior-sampling)
-- [Diffusion Posterior Sampling](#diffusion-posterior-sampling)
+- [Posterior Sampling](#posterior-sampling)
 - [Project Structure](#project-structure)
 - [Data Structure](#data-structure)
 - [Configuration Options](#configuration-options)
-- [Citations](#citations)
+- [Citation](#citation)
 
 ## Overview
 
-This project extends the original EDM framework to work with FastMRI data, providing:
+This project extends the original EDM/MoDL framework to work with FastMRI data, providing:
 
 - **Multiple Data Loaders**: Support for different MRI data formats (Noisy, Numpy, Image, NIfTI)
-- **GSURE Preconditioning**: Specialized preconditioning for denoising applications
-- **Multi-Anatomy Support**: Brain and knee MRI reconstruction
+- **GSURE Denoising**: Specialized training for denoising applications
+- **Multi-Anatomy Support**: Brain and Knee MRI reconstruction
 - **DPS Inference**: Diffusion Posterior Sampling for constrained reconstruction
+- **MoDL Inference**: Model Based Deep Learning for constrained reconstruction
 
 ## Installation
 
 ### Environment Setup
 
-1. Create and activate the conda environment:
+Create and activate the conda environment:
 ```bash
 conda env create -f environment.yml
 conda activate edm
@@ -42,10 +42,8 @@ conda activate edm
 
 ### EDM Training
 
-Use the provided training script:
-
 ```bash
-bash train_edm.sh
+bash EDM-FastMRI/train_edm.sh
 ```
 
 The `train_edm.sh` script contains the following key parameters:
@@ -82,25 +80,54 @@ torchrun --standalone --nproc_per_node=$NPROC train.py \
 
 ### GSURE Denoiser Training
 
-Use the provided training script:
-
 ```bash
-bash train_denoiser.sh
+bash EDM-FastMRI/train_denoiser.sh
 ```
 
-The `train_denoiser.sh` script contains the same parameters, except we set PRECOND=gsure:
+The `train_denoiser.sh` script contains the same parameters, except we set `PRECOND=gsure`:
 
 ```bash
 # Model Configuration
 PRECOND=gsure             # Preconditioning: vp|ve|edm|gsure
 ```
 
-## Prior Sampling
-
-Use the provided generation script:
+### MoDL Training
 
 ```bash
-bash generate.sh
+bash MoDL-FastMRI/train.sh
+```
+
+The `train.sh` script contains the following key parameters:
+
+```bash
+# GPU and Process Configuration
+CUDA_VISIBLE_DEVICES=0    # GPU to use
+NPROC=1                   # Number of processes
+
+# Training Configuration
+EPOCHS=10                 # Number of training epochs
+ANATOMY=brain             # Anatomy type: brain|knee
+DATA=noisy                # Data type
+ROOT=/path/to/root/       # Path to the root folder of the codebase
+METHOD=modl               # Method identifier
+
+# Data Configuration
+SNR=32dB                  # Signal-to-noise ratio of the training dataset
+KSP_PATH=/path/to/data/$ANATOMY/train/$SNR/ksp/    # Path to k-space data
+DATA_PATH=/path/to/data/$ANATOMY/train/$SNR/$DATA.pt    # Path to training data
+R=4                       # Acceleration factor
+
+torchrun --standalone --nproc_per_node=$NPROC train.py \
+    --gpu=$CUDA_VISIBLE_DEVICES --data_R=$R --epochs=$EPOCHS \
+    --snr=$SNR --anatomy=$ANATOMY --root=$ROOT \
+    --ksp_path=$KSP_PATH --data_path=$DATA_PATH \
+    --data_type=$DATA --method=$METHOD
+```
+
+## Prior Sampling
+
+```bash
+bash EDM-FastMRI/generate.sh
 ```
 
 The `generate.sh` script generates samples across multiple conditions:
@@ -129,14 +156,12 @@ torchrun --standalone --nproc_per_node=$NPROC generate.py \
         --sample_dim=$SAMPLE_DIM --gpu=$CUDA_VISIBLE_DEVICES
 ```
 
-## Diffusion Posterior Sampling
+## Posterior Sampling
 
-DPS enables constrained MRI reconstruction by incorporating measurement consistency during the diffusion sampling process.
-
-### Basic DPS Inference
+### DPS Inference
 
 ```bash
-bash dps.sh
+bash EDM-FastMRI/dps.sh
 ```
 
 The `dps.sh` script performs reconstruction across multiple conditions:
@@ -176,39 +201,98 @@ torchrun --standalone --nproc_per_node=$NPROC dps.py \
     --outdir=$ROOT/results/posterior/$ANATOMY/$DATA
 ```
 
+### MoDL Inference
+
+```bash
+bash MoDL-FastMRI/inference.sh
+```
+
+The `inference.sh` script performs MoDL reconstruction:
+
+```bash
+# GPU Configuration
+CUDA_VISIBLE_DEVICES=0    # GPU to use
+NPROC=1                   # Number of processes
+
+# Anatomy and Data Configuration
+ANATOMY=brain                        # Anatomy type: brain|knee
+NATIVE_SNR=32dB                      # Native SNR of the dataset
+ROOT=/path/to/root/                  # Path to the root folder of the codebase
+MODEL_PATH=ckpt_9.pt                 # Trained model checkpoint
+MEAS_PATH=/path/to/data/brain/val/$NATIVE_SNR    # Path to validation measurements
+
+# Reconstruction Parameters
+SAMPLE_START=0            # Starting sample index
+SAMPLE_END=100            # Ending sample index
+METHOD=modl               # Method identifier
+
+# Inference Configuration
+DATA=noisy32dB                          # Data type and SNR of the trained model
+INFERENCE_SNR=32dB                      # SNR of the inference input
+R=4                                     # Acceleration factor
+KSP_PATH=/path/to/data/brain/val/$INFERENCE_SNR    # Path to inference k-space data
+
+torchrun --standalone --nproc_per_node=$NPROC inference.py \
+    --gpu=$CUDA_VISIBLE_DEVICES --anatomy=$ANATOMY\
+    --sample_start $SAMPLE_START --sample_end $SAMPLE_END \
+    --inference_R $R --inference_snr $INFERENCE_SNR \
+    --measurements_path $MEAS_PATH \
+    --ksp_path $KSP_PATH \
+    --network=$ROOT/models_$METHOD/$ANATOMY/$DATA/R=$R/$MODEL_PATH \
+    --outdir=$ROOT/results_$METHOD/$ANATOMY/$DATA/R=$R/snr$INFERENCE_SNR \
+    --method=$METHOD
+```
+
 ## Project Structure
 
 ```
 EDM-FastMRI/
-├── train.py                # Main training script
-├── generate.py             # Generation script
-├── dps.py                  # DPS inference script
-├── train_edm.sh            # EDM training shell script
-├── train_denoiser.sh       # Denoiser training shell script
-├── generate.sh             # Prior sampling shell script
-├── dps.sh                  # DPS inference shell script
-├── environment.yml         # Conda environment
-├── training/               # Training modules
-│   ├── dataset.py          # Data loading classes
-│   ├── networks.py         # Model architectures and preconditioning
-│   ├── loss.py             # Loss functions (EDM, GSURE, VP, VE)
-│   ├── training_loop.py    # Main training loop
-│   └── augment.py          # Data augmentation
-├── utils/                  # Utility functions
-│   ├── brain_train_data.py # Generate train data from original brain FastMRI
-│   ├── brain_val_data.py   # Generate val data from original brain FastMRI
-│   ├── knee_train_data.py  # Generate train data from original knee FastMRI
-│   ├── knee_val_data.py    # Generate val data from original knee FastMRI
-│   └── gsure_inference.ipynb $ Script for generating denoised samples using trained denoiser
-└── torch_utils/          # PyTorch utilities
+├── train.py                  # Main training script
+├── generate.py               # Generation script
+├── dps.py                    # DPS inference script
+├── train_edm.sh              # EDM training shell script
+├── train_denoiser.sh         # Denoiser training shell script
+├── generate.sh               # Prior sampling shell script
+├── dps.sh                    # DPS inference shell script
+├── environment.yml           # Conda environment
+├── training/                 # Training modules
+│   ├── dataset.py            # Data loading classes
+│   ├── networks.py           # Model architectures and preconditioning
+│   ├── loss.py               # Loss functions (EDM, GSURE, VP, VE)
+│   ├── training_loop.py      # Main training loop
+│   └── augment.py            # Data augmentation
+├── utils/                    # Utility functions
+│   ├── brain_train_data.py   # Generate train data from original brain FastMRI
+│   ├── brain_val_data.py     # Generate val data from original brain FastMRI
+│   ├── knee_train_data.py    # Generate train data from original knee FastMRI
+│   ├── knee_val_data.py      # Generate val data from original knee FastMRI
+│   └── gsure_inference.ipynb # Script for generating denoised samples using trained denoiser
+└── torch_utils/              # PyTorch utilities
     ├── distributed.py
     ├── misc.py
     └── ...
 ```
+```
+MoDL-FastMRI/
+├── train.py                # Main MoDL training script
+├── inference.py            # MoDL inference script
+├── train.sh                # MoDL training shell script
+├── inference.sh            # MoDL inference shell script
+├── inference.ipynb         # Jupyter notebook for MoDL inference
+├── models.py               # MoDL model architectures
+├── unet.py                 # U-Net model implementation
+├── losses.py               # Loss functions for MoDL
+├── ops.py                  # Basic operations and utilities
+├── opt.py                  # Optimization routines
+├── core_ops.py             # Core MoDL operations
+├── CG.py                   # Conjugate gradient solver
+├── datagen.py              # Data generation utilities
+└── utils.py                # General utility functions
+```
 
 ## Data Structure
 
-The project expects data in the following structure, but can:
+The project expects data in the following structure:
 ```
 /path/to/data/
 ├── anatomy/                # 'brain' or 'knee'
@@ -225,7 +309,7 @@ The project expects data in the following structure, but can:
 
 ## Configuration Options
 
-### Training Parameters
+### EDM Training Parameters
 
 | Parameter | Description | Default | Options |
 |-----------|-------------|---------|---------|
@@ -255,7 +339,7 @@ The project expects data in the following structure, but can:
 | `--inference_snr` | Noise level |
 | `--l_ss` | Likelihood step size |
 
-## Citations
+## Citation
 
 If you use this code in your research, please cite:
 
@@ -266,12 +350,5 @@ If you use this code in your research, please cite:
   journal={Magnetic Resonance in Medicine},
   year={2025},
   publisher={Wiley Online Library}
-}
-
-@inproceedings{Karras2022edm,
-  author    = {Tero Karras and Miika Aittala and Timo Aila and Samuli Laine},
-  title     = {Elucidating the Design Space of Diffusion-Based Generative Models},
-  booktitle = {Proc. NeurIPS},
-  year      = {2022}
 }
 ```

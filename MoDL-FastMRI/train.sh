@@ -1,21 +1,19 @@
-GPU=2
+CUDA_VISIBLE_DEVICES=0
+NPROC=1
 EPOCHS=10
 ANATOMY=brain
 DATA=noisy
-ROOT=/csiNAS/asad/MoDL-FastMRI
-METHOD=ensure
+ROOT=/path/to/root/
+METHOD=modl
 
-for SNR in 12dB;
-do
-    KSP_PATH=/csiNAS/asad/DATA-FastMRI/$ANATOMY/train/$SNR/ksp/
-    DATA_PATH=/csiNAS/asad/DATA-FastMRI/$ANATOMY/train/$SNR/$DATA.pt
-   
-    for R in 4 8;
-    do
-        python -m torch.distributed.run --standalone train.py \
-            --gpu=$GPU --data_R=$R --epochs=$EPOCHS \
-            --snr=$SNR --anatomy=$ANATOMY --root=$ROOT \
-            --ksp_path=$KSP_PATH --data_path=$DATA_PATH \
-            --data_type=$DATA --method=$METHOD
-    done
-done
+SNR=32dB
+
+KSP_PATH=/path/to/data/$ANATOMY/train/$SNR/ksp/
+DATA_PATH=/path/to/data/$ANATOMY/train/$SNR/$DATA.pt
+R=4
+
+torchrun --standalone --nproc_per_node=$NPROC train.py \
+    --gpu=$CUDA_VISIBLE_DEVICES --data_R=$R --epochs=$EPOCHS \
+    --snr=$SNR --anatomy=$ANATOMY --root=$ROOT \
+    --ksp_path=$KSP_PATH --data_path=$DATA_PATH \
+    --data_type=$DATA --method=$METHOD
