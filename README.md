@@ -3,7 +3,7 @@ by [Asad Aali](https://asadaali.com/) and [Jon Tamir](http://users.ece.utexas.ed
 
 This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** with specialized components for MRI reconstruction tasks. The implementation includes GSURE preconditioning for denoising applications.
 
-![samples](docs/pipeline.png)
+![samples](assets/pipeline.png)
 
 Figure | Pipeline describing the techniques utilized for: (i) GSURE Denoising, (ii) GSURE-DPS Training/Inference, and (iii) GSURE-MoDL Training/Inference
 
