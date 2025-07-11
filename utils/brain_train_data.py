@@ -77,7 +77,7 @@ def task(i):
 import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
-os.environ['TOOLBOX_PATH'] = '/home/asad/bart'
+os.environ['TOOLBOX_PATH'] = '/path/to/bart/installation'
 sys.path.append('bart/python')
 import numpy as np
 import h5py
@@ -111,8 +111,14 @@ elif db == "22dB":
 elif db == "12dB":
     noise_amp = np.sqrt(100)
 
-with open('/home/asad/Old/mri-score/data/ksp_files.npy', 'rb') as f:
-    ksp_files = np.load(f)
+ksp_files_train = sorted(glob.glob("/path/to/fastMRI/data/multicoil_train/**.h5"))
+ksp_files = []
+
+for files in ksp_files_train:
+    if 'AXT2' in files:
+        ksp_files.append(files)
+
+ksp_files = sorted(ksp_files)
 
 indexes = [i for i in range(10000)]
 
@@ -122,7 +128,7 @@ u_images = torch.zeros(10000, 384, 320, dtype=torch.complex64)
 norm_consts_99 = torch.zeros(10000, dtype=torch.float32)
 noise_var_noisy = torch.zeros(10000, dtype=torch.float32)
 
-path = "/csiNAS/asad/DATA-FastMRI/brain/train/" + db
+path = "/path/to/data/brain/train/" + db
 if not os.path.exists(path + "/ksp/"):
     os.makedirs(path + "/ksp/")
 

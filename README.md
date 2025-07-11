@@ -2,7 +2,7 @@
 
 Official implementation for "[Robust multi-coil MRI reconstruction via self-supervised denoising](https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.30591)" (Magnetic Resonance in Medicine, 2025).
 
-This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** and **Model Based Deep Learning (MoDL)** with training and inference components for MRI reconstruction.
+This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** and **Model Based Deep Learning (MoDL)** with training and reconstruction components for MRI reconstruction.
 
 ![samples](assets/pipeline.png)
 
@@ -12,7 +12,7 @@ Figure | Pipeline describing: (i) GSURE Denoising, (ii) GSURE-DPS, and (iii) GSU
 
 - [Overview](#overview)
 - [Installation](#installation)
-- [Data Preparation](#data-preparation)
+- [Data Processing](#data-processing)
 - [Training](#training)
 - [Prior Sampling](#prior-sampling)
 - [Posterior Sampling](#posterior-sampling)
@@ -40,7 +40,25 @@ conda env create -f environment.yml
 conda activate edm
 ```
 
-## Data Preparation
+## Data Processing
+
+Before training, you need to preprocess the original FastMRI k-space data:
+
+1. **Download FastMRI data**: Download the original FastMRI multicoil k-space data from [fastmri.org](https://fastmri.org)
+2. **Install BART**: Install the [BART toolbox](https://mrirecon.github.io/bart/) for MRI reconstruction
+3. **Update paths**: Edit the preprocessing scripts in `utils/` to update the following paths:
+   - FastMRI data path: `/path/to/fastMRI/data/multicoil_**/`
+   - BART installation path: `/path/to/bart/installation`
+   - Output data path: `/path/to/data/`
+4. **Run preprocessing**: Execute the preprocessing scripts:
+   ```bash
+   python utils/brain_train_data.py    # For brain training data
+   python utils/brain_val_data.py      # For brain validation data
+   python utils/knee_train_data.py     # For knee training data
+   python utils/knee_val_data.py       # For knee validation data
+   ```
+
+The preprocessing scripts will perform prewhitening on the original k-space data and generate the torch (.pt) files required for EDM/GSURE/MoDL training/reconstruction.
 
 The project expects data in the following structure:
 ```

@@ -4,7 +4,7 @@ def forward_fs(img, m):
 
 def normalization_const(s, gt):                   
     # Get normalization constant from undersampled RSS
-    gt_maps_cropped = sp.resize(s, [s.shape[0], 440, 368])
+    gt_maps_cropped = sp.resize(s, [s.shape[0], 384, 320])
     gt_ksp_cropped = forward_fs(gt[None,...], gt_maps_cropped)
     # zero out everything but ACS
     gt_ksp_acs_only = sp.resize(sp.resize(gt_ksp_cropped, (s.shape[0], ACS_size, ACS_size)), gt_ksp_cropped.shape)
@@ -16,7 +16,7 @@ def normalization_const(s, gt):
 
 import sys
 import os
-os.environ['TOOLBOX_PATH'] = '/home/asad/bart'
+os.environ['TOOLBOX_PATH'] = '/path/to/bart/installation'
 sys.path.append('bart/python')
 import numpy as np
 import h5py
@@ -34,35 +34,29 @@ def tqdm(*args, **kwargs):
 from bart import bart
 import torch
 
-center_slice     = 21
-ACS_size         = 24
-indexes = [i for i in range(100)]
-snr = "4dB"
+center_slice     = 2
+ACS_size         = 20
+indexes = [i for i in range(500)]
 
-if snr == "24dB":
+snr = "32dB"
+
+if snr == "32dB":
     noise_amp = np.sqrt(0)
-elif snr == "14dB":
+elif snr == "22dB":
     noise_amp = np.sqrt(10)
-elif snr == "4dB":
+elif snr == "12dB":
     noise_amp = np.sqrt(100)
 
-ksp_files_train = sorted(glob.glob("/csiNAS/mridata/fastmri_knee/multicoil_val/**.h5"))
+ksp_files_train = sorted(glob.glob("/path/to/fastMRI/data/multicoil_val/**.h5"))
 ksp_files = []
 
-for file in ksp_files_train:
-    if dict(h5py.File(file).attrs)['acquisition'][5:7] == 'FS':
-        ksp_files.append(file)
+for files in ksp_files_train:
+    if 'AXT2' in files:
+        ksp_files.append(files)
 
-final_idx = []
+ksp_files = sorted(ksp_files)[0:500]
 
-for idx in ksp_files:
-    with h5py.File(idx, 'r') as contents:
-        if contents['kspace'].shape[3] == 368 or contents['kspace'].shape[3] == 370 or contents['kspace'].shape[3] == 372:
-            final_idx.append(idx)
-
-ksp_files = sorted(final_idx)
-
-for i in tqdm(range(len(ksp_files))):
+for i in tqdm(range(500)):
     idx = indexes[i]
     slice_idx  = center_slice
 
@@ -70,18 +64,18 @@ for i in tqdm(range(len(ksp_files))):
     with h5py.File(ksp_files[idx], 'r') as contents:
         # Get k-space for specific slice
         ksp = np.asarray(contents['kspace'][slice_idx]).transpose(1, 2, 0)
-        ksp = sp.resize(ksp, [ksp.shape[0], 368, ksp.shape[2]])
-        cimg = bart(1, 'fft -iu 3', ksp) # compare to `bart fft -iu 3 ksp cimg`
-        cimg = sp.resize(cimg, [440, cimg.shape[1], cimg.shape[2]])
-    
-    noise = cimg[0:20,0:20]
+
+    cimg = bart(1, 'fft -iu 3', ksp) # compare to `bart fft -iu 3 ksp cimg`
+    noise = sp.resize(cimg, [396, cimg.shape[1], cimg.shape[2]])[0:30,0:30]
     noise_flat = np.reshape(noise, (-1, cimg.shape[2]))
+    cimg = sp.resize(cimg, [384, 320, cimg.shape[2]])
+    
     cimg_white = bart(1, 'whiten', cimg[:,:,None,:], noise_flat[:,None,None,:]).squeeze()
     cimg_white = cimg_white + (noise_amp / np.sqrt(2))*(np.random.normal(size=cimg_white.shape) + 1j * np.random.normal(size=cimg_white.shape))
-
     ksp_white = bart(1, 'fft -u 3', cimg_white)
     s_maps_white = bart(1, 'ecalib -m 1 -c0', ksp_white[:,:,None,:]).squeeze()
-    gt_img_white_cropped = bart(1, 'pics -S -i 30', ksp_white[:,:,None,:], s_maps_white[:,:,None,:])
+    
+    gt_img_white_cropped = sp.resize(bart(1, 'pics -S -i 30', ksp_white[:,:,None,:], s_maps_white[:,:,None,:]), [384, 320])
 
     ksp_white = ksp_white.transpose(2, 0, 1)
     s_maps_white = s_maps_white.transpose(2, 0, 1)  
@@ -91,11 +85,11 @@ for i in tqdm(range(len(ksp_files))):
     ksp_white = ksp_white / norm_const_99_white
     s_maps_white = bart(1, 'ecalib -m 1 -c0', ksp_white.transpose(1, 2, 0)[:,:,None,:]).squeeze().transpose(2, 0, 1)
 
-    gt_img_white_cropped = bart(1, 'pics -S -i 30', ksp_white.transpose(1, 2, 0)[:,:,None,:], s_maps_white.transpose(1, 2, 0)[:,:,None,:])
+    gt_img_white_cropped = sp.resize(bart(1, 'pics -S -i 30', ksp_white.transpose(1, 2, 0)[:,:,None,:], s_maps_white.transpose(1, 2, 0)[:,:,None,:]), [384, 320])
     cimg_white = bart(1, 'fft -iu 3', ksp_white.transpose(1, 2, 0)).transpose(2, 0, 1) # compare to `bart fft -iu 3 ksp cimg`
-    var = np.var(cimg_white[:, 0:20, 0:20])
+    var = np.var(cimg_white[:, 0:30, 0:30])
     
-    total_lines = 368
+    total_lines = 320
     R = 2
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -105,12 +99,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_2 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 3
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -120,12 +114,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_3 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 4
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -135,12 +129,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_4 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 5
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -150,12 +144,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_5 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 6
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -165,12 +159,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_6 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 7
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -180,12 +174,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_7 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 8
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -195,12 +189,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_8 = mask[None]
     
-    total_lines = 368
+    total_lines = 320
     R = 9
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -210,12 +204,12 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_9 = mask[None]
 
-    total_lines = 368
+    total_lines = 320
     R = 10
     acs_lines = ACS_size
     num_sampled_lines = np.floor(total_lines / R)
@@ -225,26 +219,26 @@ for i in tqdm(range(len(ksp_files))):
     mask = np.zeros((total_lines, total_lines))
     mask[:,center_line_idx] = 1.
     mask[:,random_line_idx] = 1.
-    mask = sp.resize(mask, [440, 368])
-    mask[0:36] = mask[36:72]
-    mask[404:440] = mask[36:72]
+    mask = sp.resize(mask, [384, 320])
+    mask[0:32] = mask[32:64]
+    mask[352:384] = mask[32:64]
     mask_10 = mask[None]
 
     print('\n')
     print('white SNR: ' + str(10*np.log10(1/var)))
     print('gt norm: ' + str(np.linalg.norm(gt_img_white_cropped)))
-    print("Mask R=2: " + str((440*368)/np.sum(mask_2)))
-    print("Mask R=3: " + str((440*368)/np.sum(mask_3)))
-    print("Mask R=4: " + str((440*368)/np.sum(mask_4)))
-    print("Mask R=5: " + str((440*368)/np.sum(mask_5)))
-    print("Mask R=6: " + str((440*368)/np.sum(mask_6)))
-    print("Mask R=7: " + str((440*368)/np.sum(mask_7)))
-    print("Mask R=8: " + str((440*368)/np.sum(mask_8)))
-    print("Mask R=9: " + str((440*368)/np.sum(mask_9)))
-    print("Mask R=10: " + str((440*368)/np.sum(mask_10)))
+    print("Mask R=2: " + str((384*320)/np.sum(mask_2)))
+    print("Mask R=3: " + str((384*320)/np.sum(mask_3)))
+    print("Mask R=4: " + str((384*320)/np.sum(mask_4)))
+    print("Mask R=5: " + str((384*320)/np.sum(mask_5)))
+    print("Mask R=6: " + str((384*320)/np.sum(mask_6)))
+    print("Mask R=7: " + str((384*320)/np.sum(mask_7)))
+    print("Mask R=8: " + str((384*320)/np.sum(mask_8)))
+    print("Mask R=9: " + str((384*320)/np.sum(mask_9)))
+    print("Mask R=10: " + str((384*320)/np.sum(mask_10)))
     print('\nStep ' + str(i) + ' Done')
 
-    path = '/csiNAS/asad/DATA-FastMRI/knee/val/' + str(snr) + "/"
+    path = '/path/to/data/brain/val/' + str(snr) + "/"
     if not os.path.exists(path):
         os.makedirs(path)
 

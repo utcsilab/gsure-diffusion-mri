@@ -78,7 +78,7 @@ def task(i):
 import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
-os.environ['TOOLBOX_PATH'] = '/home/asad/bart'
+os.environ['TOOLBOX_PATH'] = '/path/to/bart/installation'
 sys.path.append('bart/python')
 import numpy as np
 import h5py
@@ -113,7 +113,7 @@ elif db == "4dB":
 
 indexes = [i for i in range(2000)]
 
-ksp_files_train = sorted(glob.glob("/csiNAS/mridata/fastmri_knee/multicoil_train/**.h5"))
+ksp_files_train = sorted(glob.glob("/path/to/fastMRI/data/multicoil_train/**.h5"))
 ksp_files = []
 
 for file in ksp_files_train:
@@ -134,7 +134,7 @@ u_images = torch.zeros(2000, 440, 368, dtype=torch.complex64)
 norm_consts_99 = torch.zeros(2000, dtype=torch.float32)
 noise_var_noisy = torch.zeros(2000, dtype=torch.float32)
 
-path = "/csiNAS/asad/DATA-FastMRI/knee/train/" + db
+path = "/path/to/data/knee/train/" + db
 if not os.path.exists(path + "/ksp/"):
     os.makedirs(path + "/ksp/")
 
