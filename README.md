@@ -1,6 +1,8 @@
 # Robust MRI reconstruction via self-supervised denoising | MRM 2025
 
-This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** and **Model Based Deep Learning (MoDL)** with specialized components for MRI reconstruction tasks.
+Official implementation for "[Robust multi-coil MRI reconstruction via self-supervised denoising](https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.30591)" (Magnetic Resonance in Medicine, 2025).
+
+This repository contains the FastMRI implementation of **Elucidating the Design Space of Diffusion-Based Generative Models (EDM)** and **Model Based Deep Learning (MoDL)** with training and inference components for MRI reconstruction.
 
 ![samples](assets/pipeline.png)
 
@@ -10,11 +12,11 @@ Figure | Pipeline describing: (i) GSURE Denoising, (ii) GSURE-DPS, and (iii) GSU
 
 - [Overview](#overview)
 - [Installation](#installation)
+- [Data Preparation](#data-preparation)
 - [Training](#training)
 - [Prior Sampling](#prior-sampling)
 - [Posterior Sampling](#posterior-sampling)
 - [Project Structure](#project-structure)
-- [Data Structure](#data-structure)
 - [Configuration Options](#configuration-options)
 - [Citation](#citation)
 
@@ -36,6 +38,23 @@ Create and activate the conda environment:
 ```bash
 conda env create -f environment.yml
 conda activate edm
+```
+
+## Data Preparation
+
+The project expects data in the following structure:
+```
+/path/to/data/
+├── anatomy/                # 'brain' or 'knee'
+│   ├── train/
+│   │   ├── SNR/            # e.g., '32dB', '22dB', '12dB'
+│   │   │   ├── data_type/  # 'noisy', 'denoised', etc.
+│   │   │   │   └── data.pt
+│   │   │   └── ...
+│   │   └── ...
+│   └── val/
+│       └── ... (similar structure)
+└── ...
 ```
 
 ## Training
@@ -288,23 +307,6 @@ MoDL-FastMRI/
 ├── CG.py                   # Conjugate gradient solver
 ├── datagen.py              # Data generation utilities
 └── utils.py                # General utility functions
-```
-
-## Data Structure
-
-The project expects data in the following structure:
-```
-/path/to/data/
-├── anatomy/                # 'brain' or 'knee'
-│   ├── train/
-│   │   ├── SNR/            # e.g., '32dB', '22dB', '12dB'
-│   │   │   ├── data_type/  # 'noisy', 'denoised', etc.
-│   │   │   │   └── data.pt
-│   │   │   └── ...
-│   │   └── ...
-│   └── val/
-│       └── ... (similar structure)
-└── ...
 ```
 
 ## Configuration Options
