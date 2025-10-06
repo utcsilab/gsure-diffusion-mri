@@ -337,37 +337,30 @@ class NumpyFolderDataset(Dataset):
 
 class NoisyFolderDataset(Dataset):
     def __init__(self,
-        path,                    # Path to directory or zip.
+        path,                    # Path to the .pt file.
         resolution      = None,  # Ensure specific resolution, None = highest available.
         use_pyspng      = False, # Use pyspng if available? NOTE changed default from True to False
         data            = None,  # Data to pass through the network for denoising.
         **super_kwargs,          # Additional arguments for the Dataset base class.
     ):
         data_path = path + ".pt"
-        self._path = "/".join(data_path.split("/")[0:-1]) + "/samples/"
+        self._path = "/".join(str(data_path).split("/")[0:-1]) + "/samples/"
         self._use_pyspng = use_pyspng
+        self._zipfile = None  # ensure attribute exists for close()/__getstate__()
+
         print("\nLoading Dataset from: " + str(data_path))
-        data = torch.load(data_path)
+        data = torch.load(data_path) if data is None else data
         self._data = data
         
         for i in range(len(self._data["u_images"])):
             self._data['noise_var_noisy'][i] = self._data['noise_var_noisy'][i] / 2
             self._data["u_images"][i] = self._data["u_images"][i] / self._data['noise_var_noisy'][i]
-        
-        if os.path.isdir(self._path):
-            self._type = 'dir'
-            self._all_fnames = {os.path.relpath(os.path.join(root, fname), start=self._path) for root, _dirs, files in os.walk(self._path) for fname in files}
-        elif self._file_ext(self._path) == '.zip':
-            self._type = 'zip'
-            self._all_fnames = set(self._get_zipfile().namelist())
-        else:
-            raise IOError('Path must point to a directory or zip')
-        
-        self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) == ".npy") #NOTE changed to only grab .npy
-        if len(self._image_fnames) == 0:
-            raise IOError('No image files found in the specified path')
-        
-        name = os.path.splitext(os.path.basename(self._path))[0]
+
+        self._type = 'memory'
+        count = len(self._data["u_images"])
+        self._all_fnames = {f"{i}.npy" for i in range(count)}
+        self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) == ".npy")
+        name = os.path.splitext(os.path.basename(self._path.rstrip('/')))[0] or "samples"
         raw_shape = [len(self._image_fnames)] + list(self._load_raw_image(0).shape)
         raw_shape[1] = 2
         print("Dataset Shape: " + str(raw_shape) + "\n")
@@ -382,17 +375,18 @@ class NoisyFolderDataset(Dataset):
         if self._zipfile is None:
             self._zipfile = zipfile.ZipFile(self._path)
         return self._zipfile
-    
+
     def _open_file(self, fname):
+        # Kept for compatibility; not used in memory mode.
         if self._type == 'dir':
             return open(os.path.join(self._path, fname), 'rb')
         if self._type == 'zip':
             return self._get_zipfile().open(fname, 'r')
         return None
-    
+
     def close(self):
         try:
-            if self._zipfile is not None:
+            if getattr(self, "_zipfile", None) is not None:
                 self._zipfile.close()
         finally:
             self._zipfile = None
@@ -404,9 +398,8 @@ class NoisyFolderDataset(Dataset):
         idx = int(self._image_fnames[raw_idx].split(".")[0])
         u_images = np.array(torch.view_as_real(self._data["u_images"][idx]).permute(2, 0, 1))
         x_est = np.array(torch.view_as_real(self._data["x_est"][idx]).permute(2, 0, 1))
-        
         return np.concatenate([u_images, x_est])
-    
+
     def _load_raw_labels(self):
         fname = 'dataset.json'
         if fname not in self._all_fnames:
