@@ -106,7 +106,7 @@ AUGMENT=0                 # Data augmentation probability
 
 torchrun --standalone --nproc_per_node=$NPROC train.py \
  --outdir=$ROOT/models/$PRECOND/$ANATOMY/$SNR \
- --data=$ROOT_DATA/$ANATOMY/train/$SNR/$DATA \
+ --data=$ROOT_DATA/$ANATOMY/train/$SNR/$DATA.pt \
  --cond=0 --arch=ddpmpp --duration=10 \
  --batch=$BATCH_SIZE --cbase=128 --cres=1,1,2,2,2,2,2 \
  --lr=1e-4 --ema=0.1 --dropout=0.0 \
