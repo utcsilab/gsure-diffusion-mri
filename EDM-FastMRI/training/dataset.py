@@ -343,7 +343,7 @@ class NoisyFolderDataset(Dataset):
         data            = None,  # Data to pass through the network for denoising.
         **super_kwargs,          # Additional arguments for the Dataset base class.
     ):
-        data_path = path + ".pt"
+        data_path = path
         self._path = "/".join(str(data_path).split("/")[0:-1]) + "/samples/"
         self._use_pyspng = use_pyspng
         self._zipfile = None  # ensure attribute exists for close()/__getstate__()
